@@ -4,14 +4,30 @@
     android:versionName="1.0" >
 
     <uses-sdk
-        android:minSdkVersion="8"
+        android:minSdkVersion="14"
         android:targetSdkVersion="19" />
+
+    <permission android:name="magnat.android.permission.OPENVPN_SERVICE" />
 
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
+        <service
+            android:name="OpenVpnService"
+            android:permission="android.permission.BIND_VPN_SERVICE" >
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name="OpenVpnService_External"
+            android:permission="magnat.android.permission.OPENVPN_SERVICE" >
+            <intent-filter>
+                <action android:name="ru.magnat.android.service.openvpn.OpenVpnService_External" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>
