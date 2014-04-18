@@ -12,7 +12,7 @@ public class OpenVpnService extends VpnService {
 	
 	public class LocalBinder extends Binder {
 		
-		public OpenVpnService getService() {
+		public OpenVpnService getService() { 
 			return OpenVpnService.this;
 		}
 		
