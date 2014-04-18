@@ -12,18 +12,18 @@ import ru.magnat.android.service.openvpn.BuildConfig;
 
 public class NetworkSpace {
 
-
-    static class ipAddress implements Comparable<ipAddress> {
-        private BigInteger netAddress;
-        public int networkMask;
+    static class IpAddress implements Comparable<IpAddress> {
+        
+    	public int networkMask;
+    	
+    	private BigInteger mNetAddress;
         private boolean included;
         private boolean isV4;
-        private BigInteger firstAddress;
-        private BigInteger lastAddress;
-
+        private BigInteger mFirstAddress;
+        private BigInteger mLastAddress;
 
         @Override
-        public int compareTo(ipAddress another) {
+        public int compareTo(IpAddress another) {
             int comp = getFirstAddress().compareTo(another.getFirstAddress());
             if (comp != 0)
                 return comp;
@@ -37,42 +37,45 @@ public class NetworkSpace {
                 return 1;
         }
 
-        public ipAddress(CIDRIP ip, boolean include) {
+        public IpAddress(CidrIp ip, boolean include) {
+        	mNetAddress = BigInteger.valueOf(ip.getInt());
+        	
             included = include;
-            netAddress = BigInteger.valueOf(ip.getInt());
-            networkMask = ip.len;
+            
+            networkMask = ip.getPrefix();
             isV4 = true;
         }
 
-        public ipAddress(Inet6Address address, int mask, boolean include) {
+        public IpAddress(Inet6Address address, int mask, boolean include) {
             networkMask = mask;
             included = include;
 
             int s = 128;
 
-            netAddress = BigInteger.ZERO;
+            mNetAddress = BigInteger.ZERO;
             for (byte b : address.getAddress()) {
                 s -= 16;
-                netAddress = netAddress.add(BigInteger.valueOf(b).shiftLeft(s));
+                mNetAddress = mNetAddress.add(BigInteger.valueOf(b).shiftLeft(s));
             }
         }
 
         public BigInteger getLastAddress() {
-            if(lastAddress ==null)
-                lastAddress = getMaskedAddress(true);
-            return lastAddress;
+            if(mLastAddress == null) {
+                mLastAddress = getMaskedAddress(true);
+            }
+            
+            return mLastAddress;
         }
 
 
         public BigInteger getFirstAddress() {
-            if (firstAddress ==null)
-                firstAddress =getMaskedAddress(false);
-            return firstAddress;
+            if (mFirstAddress ==null)
+                mFirstAddress =getMaskedAddress(false);
+            return mFirstAddress;
         }
 
-
         private BigInteger getMaskedAddress(boolean one) {
-            BigInteger numAddress = netAddress;
+            BigInteger numAddress = mNetAddress;
 
             int numBits;
             if (isV4) {
@@ -100,34 +103,34 @@ public class NetworkSpace {
                 return String.format(Locale.US, "%s/%d", getIPv6Address(), networkMask);
         }
 
-        ipAddress(BigInteger baseAddress, int mask, boolean included, boolean isV4) {
-            this.netAddress = baseAddress;
+        IpAddress(BigInteger baseAddress, int mask, boolean included, boolean isV4) {
+            this.mNetAddress = baseAddress;
             this.networkMask = mask;
             this.included = included;
             this.isV4 = isV4;
         }
 
 
-        public ipAddress[] split() {
-            ipAddress firsthalf = new ipAddress(getFirstAddress(), networkMask + 1, included, isV4);
-            ipAddress secondhalf = new ipAddress(firsthalf.getLastAddress().add(BigInteger.ONE), networkMask + 1, included, isV4);
+        public IpAddress[] split() {
+            IpAddress firsthalf = new IpAddress(getFirstAddress(), networkMask + 1, included, isV4);
+            IpAddress secondhalf = new IpAddress(firsthalf.getLastAddress().add(BigInteger.ONE), networkMask + 1, included, isV4);
             if (BuildConfig.DEBUG) Assert.assertTrue(secondhalf.getLastAddress().equals(getLastAddress()));
-            return new ipAddress[]{firsthalf, secondhalf};
+            return new IpAddress[]{firsthalf, secondhalf};
         }
 
         String getIPv4Address() {
             if (BuildConfig.DEBUG) {
                 Assert.assertTrue (isV4);
-                Assert.assertTrue (netAddress.longValue() <= 0xffffffffl);
-                Assert.assertTrue (netAddress.longValue() >= 0);
+                Assert.assertTrue (mNetAddress.longValue() <= 0xffffffffl);
+                Assert.assertTrue (mNetAddress.longValue() >= 0);
             }
-            long ip = netAddress.longValue();
+            long ip = mNetAddress.longValue();
             return String.format(Locale.US, "%d.%d.%d.%d", (ip >> 24) % 256, (ip >> 16) % 256, (ip >> 8) % 256, ip % 256);
         }
 
         String getIPv6Address() {
             if (BuildConfig.DEBUG) Assert.assertTrue (!isV4);
-            BigInteger r = netAddress;
+            BigInteger r = mNetAddress;
             if (r.longValue() == 0)
                 return "::";
 
@@ -140,19 +143,19 @@ public class NetworkSpace {
             return TextUtils.join(":", parts);
         }
 
-        public boolean containsNet(ipAddress network) {
+        public boolean containsNet(IpAddress network) {
             return getFirstAddress().compareTo(network.getFirstAddress()) != 1 &&
                     getLastAddress().compareTo(network.getLastAddress()) != -1;
         }
     }
 
 
-    TreeSet<ipAddress> mIpAddresses = new TreeSet<ipAddress>();
+    TreeSet<IpAddress> mIpAddresses = new TreeSet<IpAddress>();
 
 
-    public Collection<ipAddress> getNetworks(boolean included) {
-        Vector<ipAddress> ips = new Vector<ipAddress>();
-        for (ipAddress ip : mIpAddresses) {
+    public Collection<IpAddress> getNetworks(boolean included) {
+        Vector<IpAddress> ips = new Vector<IpAddress>();
+        for (IpAddress ip : mIpAddresses) {
             if (ip.included == included)
                 ips.add(ip);
         }
@@ -164,28 +167,28 @@ public class NetworkSpace {
     }
 
 
-    void addIP(CIDRIP cidrIp, boolean include) {
+    void addIP(CidrIp cidrIp, boolean include) {
 
-        mIpAddresses.add(new ipAddress(cidrIp, include));
+        mIpAddresses.add(new IpAddress(cidrIp, include));
     }
 
     void addIPv6(Inet6Address address, int mask, boolean included) {
-        mIpAddresses.add(new ipAddress(address, mask, included));
+        mIpAddresses.add(new IpAddress(address, mask, included));
     }
 
-    TreeSet<ipAddress> generateIPList() {
+    TreeSet<IpAddress> generateIPList() {
 
-        PriorityQueue<ipAddress> networks = new PriorityQueue<ipAddress>(mIpAddresses);
+        PriorityQueue<IpAddress> networks = new PriorityQueue<IpAddress>(mIpAddresses);
 
-        TreeSet<ipAddress> ipsDone = new TreeSet<ipAddress>();
+        TreeSet<IpAddress> ipsDone = new TreeSet<IpAddress>();
 
-        ipAddress currentNet =  networks.poll();
+        IpAddress currentNet =  networks.poll();
         if (currentNet==null)
             return ipsDone;
 
         while (currentNet!=null) {
             // Check if it and the next of it are compatbile
-            ipAddress nextNet = networks.poll();
+            IpAddress nextNet = networks.poll();
 
             if (BuildConfig.DEBUG) Assert.assertNotNull(currentNet);
             if (nextNet== null || currentNet.getLastAddress().compareTo(nextNet.getFirstAddress()) == -1) {
@@ -202,7 +205,7 @@ public class NetworkSpace {
                         currentNet=nextNet;
                     } else {
                         // our currentnet is included in next and types differ. Need to split the next network
-                        ipAddress[] newNets = nextNet.split();
+                        IpAddress[] newNets = nextNet.split();
 
                         // First add the second half to keep the order in networks
                         if (!networks.contains(newNets[1]))
@@ -230,7 +233,7 @@ public class NetworkSpace {
                         // simply ignore the next and move on
                     } else {
                         // We need to split our network
-                        ipAddress[] newNets = currentNet.split();
+                        IpAddress[] newNets = currentNet.split();
 
 
                         if (newNets[1].networkMask == nextNet.networkMask) {
@@ -256,11 +259,11 @@ public class NetworkSpace {
         return ipsDone;
     }
 
-    Collection<ipAddress> getPositiveIPList() {
-        TreeSet<ipAddress> ipsSorted = generateIPList();
+    Collection<IpAddress> getPositiveIPList() {
+        TreeSet<IpAddress> ipsSorted = generateIPList();
 
-        Vector<ipAddress> ips = new Vector<ipAddress>();
-        for (ipAddress ia : ipsSorted) {
+        Vector<IpAddress> ips = new Vector<IpAddress>();
+        for (IpAddress ia : ipsSorted) {
             if (ia.included)
                 ips.add(ia);
         }
@@ -268,7 +271,7 @@ public class NetworkSpace {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
             // Include postive routes from the original set under < 4.4 since these might overrule the local
             // network but only if no smaller negative route exists
-            for(ipAddress origIp: mIpAddresses){
+            for(IpAddress origIp: mIpAddresses){
                 if (!origIp.included)
                     continue;
 
@@ -278,7 +281,7 @@ public class NetworkSpace {
 
                 boolean skipIp=false;
                 // If there is any smaller net that is excluded we may not add the positive route back
-                for (ipAddress calculatedIp: ipsSorted) {
+                for (IpAddress calculatedIp: ipsSorted) {
                     if(!calculatedIp.included && origIp.containsNet(calculatedIp)) {
                         skipIp=true;
                         break;

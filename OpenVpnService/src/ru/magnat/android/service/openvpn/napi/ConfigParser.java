@@ -348,7 +348,7 @@ public class ConfigParser {
 
 				String net = route.get(1);	
 				try {
-					CIDRIP cidr = new CIDRIP(net, netmask);
+					CidrIp cidr = new CidrIp(net, netmask);
                     if (gateway.equals("net_gateway"))
                         routeExcluded += cidr.toString() + " ";
                     else
@@ -481,7 +481,7 @@ public class ConfigParser {
 		Vector<String> ifconfig = getOption("ifconfig", 2, 2);
 		if(ifconfig!=null) {
 			try	{
-				CIDRIP cidr = new CIDRIP(ifconfig.get(1), ifconfig.get(2));
+				CidrIp cidr = new CidrIp(ifconfig.get(1), ifconfig.get(2));
 				np.mIPv4Address=cidr.toString();
 			} catch (NumberFormatException nfe) {
 				throw new ConfigParseError("Could not pase ifconfig IP address: " + nfe.getLocalizedMessage());

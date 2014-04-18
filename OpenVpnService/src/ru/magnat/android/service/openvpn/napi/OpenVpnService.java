@@ -15,7 +15,7 @@ import java.util.Locale;
 import java.util.Vector;
 
 import ru.magnat.android.service.openvpn.R;
-import ru.magnat.android.service.openvpn.napi.NetworkSpace.ipAddress;
+import ru.magnat.android.service.openvpn.napi.NetworkSpace.IpAddress;
 import ru.magnat.android.service.openvpn.napi.VpnStatus.ByteCountListener;
 import ru.magnat.android.service.openvpn.napi.VpnStatus.ConnectionStatus;
 import ru.magnat.android.service.openvpn.napi.VpnStatus.StateListener;
@@ -40,6 +40,7 @@ import android.preference.PreferenceManager;
 import android.text.TextUtils;
 
 public class OpenVpnService extends VpnService implements StateListener, Callback, ByteCountListener {
+	
     public static final String START_SERVICE = "de.blinkt.openvpn.START_SERVICE";
     public static final String START_SERVICE_STICKY = "de.blinkt.openvpn.START_SERVICE_STICKY";
     public static final String ALWAYS_SHOW_NOTIFICATION = "de.blinkt.openvpn.NOTIFICATION_ALWAYS_VISIBLE";
@@ -55,7 +56,7 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
     private Thread mProcessThread = null;
     private VpnProfile mProfile;
     private String mDomain = null;
-    private CIDRIP mLocalIP = null;
+    private CidrIp mLocalIp = null;
     private int mMtu;
     private String mLocalIPv6 = null;
     private DeviceStateReceiver mDeviceStateReceiver;
@@ -152,7 +153,6 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
 
         @SuppressWarnings("deprecation")
         Notification notification = nbuilder.getNotification();
-
 
         mNotificationManager.notify(OPENVPN_STATUS, notification);
         startForeground(OPENVPN_STATUS, notification);
@@ -427,8 +427,8 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
         // two identical configurations produce the same result
         String cfg = "TUNCFG UNQIUE STRING ips:";
 
-        if (mLocalIP != null)
-            cfg += mLocalIP.toString();
+        if (mLocalIp != null)
+            cfg += mLocalIp.toString();
         if (mLocalIPv6 != null)
             cfg += mLocalIPv6.toString();
 
@@ -449,16 +449,16 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
         VpnStatus.logInfo(R.string.last_openvpn_tun_config);
 
 
-        if (mLocalIP == null && mLocalIPv6 == null) {
+        if (mLocalIp == null && mLocalIPv6 == null) {
             VpnStatus.logError(getString(R.string.opentun_no_ipaddr));
             return null;
         }
 
-        if (mLocalIP != null) {
+        if (mLocalIp != null) {
             try {
-                builder.addAddress(mLocalIP.mIp, mLocalIP.len);
+                builder.addAddress(mLocalIp.getIp(), mLocalIp.getPrefix());
             } catch (IllegalArgumentException iae) {
-                VpnStatus.logError(R.string.dns_add_error, mLocalIP, iae.getLocalizedMessage());
+                VpnStatus.logError(R.string.dns_add_error, mLocalIp, iae.getLocalizedMessage());
                 return null;
             }
         }
@@ -486,10 +486,10 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
 
         builder.setMtu(mMtu);
 
-        Collection<ipAddress> positiveIPv4Routes = mRoutes.getPositiveIPList();
-        Collection<ipAddress> positiveIPv6Routes = mRoutesv6.getPositiveIPList();
+        Collection<IpAddress> positiveIPv4Routes = mRoutes.getPositiveIPList();
+        Collection<IpAddress> positiveIPv6Routes = mRoutesv6.getPositiveIPList();
 
-        for (NetworkSpace.ipAddress route : positiveIPv4Routes) {
+        for (NetworkSpace.IpAddress route : positiveIPv4Routes) {
             try {
                 builder.addRoute(route.getIPv4Address(), route.networkMask);
             } catch (IllegalArgumentException ia) {
@@ -497,7 +497,7 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
             }
         }
 
-        for (NetworkSpace.ipAddress route6 : positiveIPv6Routes) {
+        for (NetworkSpace.IpAddress route6 : positiveIPv6Routes) {
             try {
                 builder.addRoute(route6.getIPv6Address(), route6.networkMask);
             } catch (IllegalArgumentException ia) {
@@ -508,17 +508,17 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
         if (mDomain != null)
             builder.addSearchDomain(mDomain);
 
-        VpnStatus.logInfo(R.string.local_ip_info, mLocalIP.mIp, mLocalIP.len, mLocalIPv6, mMtu);
+        VpnStatus.logInfo(R.string.local_ip_info, mLocalIp.getIp(), mLocalIp.getPrefix(), mLocalIPv6, mMtu);
         VpnStatus.logInfo(R.string.dns_server_info, TextUtils.join(", ", mDnslist), mDomain);
         VpnStatus.logInfo(R.string.routes_info_incl, TextUtils.join(", ", mRoutes.getNetworks(true)), TextUtils.join(", ", mRoutesv6.getNetworks(true)));
         VpnStatus.logInfo(R.string.routes_info_excl, TextUtils.join(", ", mRoutes.getNetworks(false)),TextUtils.join(", ", mRoutesv6.getNetworks(false)));
         VpnStatus.logDebug(R.string.routes_debug, TextUtils.join(", ", positiveIPv4Routes), TextUtils.join(", ", positiveIPv6Routes));
 
         String session = mProfile.mName;
-        if (mLocalIP != null && mLocalIPv6 != null)
-            session = getString(R.string.session_ipv6string, session, mLocalIP, mLocalIPv6);
-        else if (mLocalIP != null)
-            session = getString(R.string.session_ipv4string, session, mLocalIP);
+        if (mLocalIp != null && mLocalIPv6 != null)
+            session = getString(R.string.session_ipv6string, session, mLocalIp, mLocalIPv6);
+        else if (mLocalIp != null)
+            session = getString(R.string.session_ipv4string, session, mLocalIp);
 
         builder.setSession(session);
 
@@ -532,7 +532,7 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
         mDnslist.clear();
         mRoutes.clear();
         mRoutesv6.clear();
-        mLocalIP = null;
+        mLocalIp = null;
         mLocalIPv6 = null;
         mDomain = null;
 
@@ -564,21 +564,21 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
     }
 
     /** Route that is always included, used by the v3 core */
-    public void addRoute (CIDRIP route) {
+    public void addRoute (CidrIp route) {
         mRoutes.addIP(route, true);
     }
 
     public void addRoute (String dest, String mask, String gateway, String device) {
-        CIDRIP route = new CIDRIP(dest, mask);
+        CidrIp route = new CidrIp(dest, mask);
         boolean include = isAndroidTunDevice(device);
 
-        NetworkSpace.ipAddress gatewayIP = new NetworkSpace.ipAddress(new CIDRIP(gateway, 32),false);
+        NetworkSpace.IpAddress gatewayIP = new NetworkSpace.IpAddress(new CidrIp(gateway, 32),false);
 
-        if (mLocalIP==null) {
+        if (mLocalIp==null) {
             VpnStatus.logError("Local IP address unset but adding route?! This is broken! Please contact author with log");
             return;
         }
-        NetworkSpace.ipAddress localNet = new NetworkSpace.ipAddress(mLocalIP,true);
+        NetworkSpace.IpAddress localNet = new NetworkSpace.IpAddress(mLocalIp,true);
         if (localNet.containsNet(gatewayIP))
             include=true;
 
@@ -587,12 +587,12 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
             include=true;
 
 
-        if (route.len == 32 && !mask.equals("255.255.255.255")) {
+        if (route.getPrefix() == 32 && !mask.equals("255.255.255.255")) {
             VpnStatus.logWarning(R.string.route_not_cidr, dest, mask);
         }
 
         if (route.normalise())
-            VpnStatus.logWarning(R.string.route_not_netip, dest, route.len, route.mIp);
+            VpnStatus.logWarning(R.string.route_not_netip, dest, route.getPrefix(), route.getIp());
 
         mRoutes.addIP(route, include);
     }
@@ -624,26 +624,26 @@ public class OpenVpnService extends VpnService implements StateListener, Callbac
         mMtu = mtu;
     }
 
-    public void setLocalIP(CIDRIP cdrip) {
-        mLocalIP = cdrip;
+    public void setLocalIP(CidrIp cdrip) {
+        mLocalIp = cdrip;
     }
 
     public void setLocalIP(String local, String netmask, int mtu, String mode) {
-        mLocalIP = new CIDRIP(local, netmask);
+        mLocalIp = new CidrIp(local, netmask);
         mMtu = mtu;
         mRemoteGW=null;
 
 
-        if (mLocalIP.len == 32 && !netmask.equals("255.255.255.255")) {
+        if (mLocalIp.getPrefix() == 32 && !netmask.equals("255.255.255.255")) {
             // get the netmask as IP
-            long netMaskAsInt = CIDRIP.getInt(netmask);
+            long netMaskAsInt = CidrIp.getInt(netmask);
 
             // Netmask is Ip address +/-1, assume net30/p2p with small net
-            if (Math.abs(netMaskAsInt - mLocalIP.getInt()) == 1) {
+            if (Math.abs(netMaskAsInt - mLocalIp.getInt()) == 1) {
                 if ("net30".equals(mode))
-                    mLocalIP.len = 30;
+                    mLocalIp.setPrefix(30);
                 else
-                    mLocalIP.len = 31;
+                    mLocalIp.setPrefix(31);
             } else {
                 if (!"p2p".equals(mode))
                     VpnStatus.logWarning(R.string.ip_not_cidr, local, netmask, mode);

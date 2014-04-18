@@ -2,13 +2,13 @@ package ru.magnat.android.service.openvpn.napi;
 
 import java.util.Locale;
 
-class CIDRIP {
-    String mIp;
-    int len;
-
-
-    public CIDRIP(String ip, String mask) {
-        mIp = ip;
+public class CidrIp {
+	
+    private String mIpAddress;
+    private int mPrefix;
+    
+    public CidrIp(String ip, String mask) {
+        mIpAddress = ip;
         long netmask = getInt(mask);
 
         // Add 33. bit to ensure the loop terminates
@@ -22,29 +22,44 @@ class CIDRIP {
         // Check if rest of netmask is only 1s
         if (netmask != (0x1ffffffffl >> lenZeros)) {
             // Asume no CIDR, set /32
-            len = 32;
+            mPrefix = 32;
         } else {
-            len = 32 - lenZeros;
+            mPrefix = 32 - lenZeros;
         }
-
     }
 
-    public CIDRIP(String address, int prefix_length) {
-        len = prefix_length;
-        mIp = address;
+    public CidrIp(String address, int prefix) {
+    	mIpAddress = address;
+    	mPrefix = prefix;
     }
 
+    public void setIp(String address) {
+    	mIpAddress = address;
+    }
+    
+    public String getIp() {
+    	return mIpAddress;
+    }
+    
+    public void setPrefix(int prefix) {
+    	mPrefix = prefix;
+    }
+    
+    public int getPrefix() {
+    	return mPrefix;
+    }
+    
     @Override
     public String toString() {
-        return String.format(Locale.ENGLISH, "%s/%d", mIp, len);
+        return String.format(Locale.ENGLISH, "%s/%d", mIpAddress, mPrefix);
     }
 
     public boolean normalise() {
-        long ip = getInt(mIp);
+        long ip = getInt(mIpAddress);
 
-        long newip = ip & (0xffffffffl << (32 - len));
+        long newip = ip & (0xffffffffl << (32 - mPrefix));
         if (newip != ip) {
-            mIp = String.format("%d.%d.%d.%d", (newip & 0xff000000) >> 24, (newip & 0xff0000) >> 16, (newip & 0xff00) >> 8, newip & 0xff);
+            mIpAddress = String.format("%d.%d.%d.%d", (newip & 0xff000000) >> 24, (newip & 0xff0000) >> 16, (newip & 0xff00) >> 8, newip & 0xff);
             return true;
         } else {
             return false;
@@ -64,7 +79,7 @@ class CIDRIP {
     }
 
     public long getInt() {
-        return getInt(mIp);
+        return getInt(mIpAddress);
     }
 
 }
