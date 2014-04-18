@@ -11,7 +11,7 @@ public class OpenVpnService extends VpnService {
 	private static final String LOG_TAG = "OpenVpnService";
 	
 	public class LocalBinder extends Binder {
-		
+		 
 		public OpenVpnService getService() { 
 			return OpenVpnService.this;
 		}
