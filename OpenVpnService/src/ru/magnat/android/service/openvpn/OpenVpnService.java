@@ -18,7 +18,7 @@ public class OpenVpnService extends VpnService {
 		
 	}
 	
-	private LocalBinder mBinder = new LocalBinder();
+	private LocalBinder mBinder = new LocalBinder(); 
 	
 	@Override
 	public IBinder onBind(Intent intent) {
