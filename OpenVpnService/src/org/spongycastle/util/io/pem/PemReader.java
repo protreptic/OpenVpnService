@@ -50,7 +50,7 @@ public class PemReader
         String          line;
         String          endMarker = END + type;
         StringBuffer    buf = new StringBuffer();
-        List            headers = new ArrayList();
+        List<PemHeader>            headers = new ArrayList<PemHeader>();
 
         while ((line = readLine()) != null)
         {
